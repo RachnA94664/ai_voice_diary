@@ -1,0 +1,934 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Dashboard - AI Voice Diary{% endblock %}
+{% block content %}
+{% if profile and quota_bytes %}
+  <div class="small text-muted">
+    Storage used: {{ profile.storage_used|default:0 }} of {{ quota_bytes }} bytes
+  </div>
+  <div class="progress my-1" style="height:6px;">
+    {% with pct=profile.storage_used|divisibleby:quota_bytes %}
+    {% endwith %}
+    <div id="dashStorageBar" class="progress-bar" style="width: 0%"></div>
+  </div>
+{% endif %}
+
+{% comment %} <!-- Trial Banner with Free/Premium -->
+<div class="trial-banner {% if user.userprofile.is_premium %}premium-user{% else %}free-user{% endif %}" id="trialBanner">
+    {% if user.userprofile.is_premium %}
+        👑 Premium User - Unlimited Access to All Features!
+        <button class="upgrade-btn" onclick="manageBilling()">Manage Billing</button>
+    {% else %}
+        🆓 Free Trial: {{ trial_days_left }} days remaining! Unlock premium features today.
+        <button class="upgrade-btn" onclick="showPremiumModal()">Upgrade Now</button>
+    {% endif %}
+</div> {% endcomment %}
+
+<!-- Enhanced Navigation Bar with Authentication -->
+<nav class="navbar-custom" style="top: 32px;">
+    <button class="navbar-btn" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <a href="{% url 'diary:dashboard' %}" class="navbar-brand">
+        <i class="fas fa-microphone-alt me-2"></i>
+        AI Voice Diary
+    </a>
+    
+    <div class="navbar-actions">
+        <!-- Free/Premium Toggle Buttons -->
+        <div class="dual-action-buttons">
+            {% if user.is_authenticated %}
+                {% if not user.userprofile.is_premium %}
+                    <button class="free-btn" onclick="showFreeFeatures()">
+                        <i class="fas fa-gift me-1"></i>
+                        Free
+                    </button>
+                    <div class="action-divider"></div>
+                {% endif %}
+                
+                <button class="premium-btn" onclick="{% if user.userprofile.is_premium %}manageBilling(){% else %}showPremiumModal(){% endif %}">
+                    <i class="fas fa-crown me-1"></i>
+                    {% if user.userprofile.is_premium %}Premium{% else %}Upgrade{% endif %}
+                </button>
+            {% endif %}
+        </div>
+        
+        <div class="action-divider"></div>
+        
+        <!-- Authentication-aware UI -->
+        {% if user.is_authenticated %}
+            <!-- Logged-in User UI -->
+            
+            <!-- Search -->
+            <button class="navbar-btn" title="Search">
+                <i class="fas fa-search"></i>
+            </button>
+            
+            <!-- Notifications -->
+            <button class="navbar-btn" title="Notifications">
+                <i class="fas fa-bell"></i>
+                <span class="badge">3</span>
+            </button>
+            
+            <!-- User Menu Dropdown -->
+            <div class="dropdown">
+                <button class="navbar-btn dropdown-toggle" data-bs-toggle="dropdown" title="Account Menu">
+                    <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:user.username }}&background=8B5CF6&color=fff" 
+                         class="rounded-circle" width="32" height="32" alt="User Avatar">
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li class="dropdown-header">
+                        <div class="d-flex align-items-center">
+                            <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:user.username }}&background=8B5CF6&color=fff" 
+                                 class="rounded-circle me-2" width="24" height="24" alt="User">
+                            <div>
+                                <div class="fw-bold">{{ user.get_full_name|default:user.username }}</div>
+                                <small class="text-muted">{{ user.email }}</small>
+                            </div>
+                        </div>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                    {% if not user.userprofile.is_premium %}
+                    <li><a class="dropdown-item" href="#" onclick="showPremiumModal()"><i class="fas fa-crown me-2"></i>Upgrade to Premium</a></li>
+                    {% else %}
+                    <li><a class="dropdown-item" href="#" onclick="manageBilling()"><i class="fas fa-credit-card me-2"></i>Billing</a></li>
+                    {% endif %}
+                    <li><hr class="dropdown-divider"></li>
+                    <li> <form method="post" action="{% url 'logout' %}" style="display: inline;"> {% csrf_token %} <button type="submit" class="dropdown-item" style="border: none; background: none; padding: 0; width: 100%; text-align: left;"><i class="fas fa-sign-out-alt me-2"></i>Sign Out</button></form> </li>
+                </ul>
+            </div>
+        {% else %}
+            <!-- Logged-out User UI -->
+            <div class="d-flex gap-2">
+                <a href="{% url 'login' %}" class="btn btn-secondary-custom">
+                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                </a>
+                <a href="{% url 'accounts:register' %}" class="btn btn-primary-custom">
+                    <i class="fas fa-user-plus me-2"></i>Sign Up
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</nav>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="sidebar-search">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search..." autocomplete="off">
+        </div>
+    </div>
+    
+    <nav class="sidebar-nav">
+        <div class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <div class="nav-item">
+                <a href="#dashboard" class="nav-link active">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#record" class="nav-link">
+                    <i class="fas fa-microphone"></i>
+                    Record Entry
+                    <span class="badge">New</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="{% url 'diary:entry_list' %}" class="nav-link">
+                    <i class="fas fa-book"></i>
+                    My Entries
+                </a>
+            </div>
+        </div>
+        
+        <div class="nav-section">
+            <div class="nav-section-title">Analytics</div>
+            <div class="nav-item">
+                <a href="#expenses" class="nav-link">
+                    <i class="fas fa-dollar-sign"></i>
+                    Expenses
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#tasks" class="nav-link">
+                    <i class="fas fa-tasks"></i>
+                    Tasks
+                </a>
+            </div>
+            
+        </div>
+        
+        <div class="nav-section">
+            <div class="nav-section-title">Free Tools</div>
+            <div class="nav-item">
+                <a href="#basic-reports" class="nav-link">
+                    <i class="fas fa-chart-line"></i>
+                    Basic Reports
+                    <span class="free-badge">FREE</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#ai-chat-limited" class="nav-link">
+                    <i class="fas fa-robot"></i>
+                    AI Chat (5/day)
+                    <span class="free-badge">FREE</span>
+                </a>
+            </div>
+        </div>
+        
+        <div class="nav-section">
+            <div class="nav-section-title">Premium Tools</div>
+            <div class="nav-item">
+                <a href="#advanced-reports" class="nav-link {% if not user.userprofile.is_premium %}locked-feature{% endif %}" 
+                   onclick="{% if not user.userprofile.is_premium %}showPremiumModal(); return false;{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    Advanced Reports
+                    <span class="premium-badge">PRO</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#export" class="nav-link {% if not user.userprofile.is_premium %}locked-feature{% endif %}" 
+                   onclick="{% if not user.userprofile.is_premium %}showPremiumModal(); return false;{% endif %}">
+                    <i class="fas fa-download"></i>
+                    Export Data
+                    <span class="premium-badge">PRO</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#ai-insights" class="nav-link {% if not user.userprofile.is_premium %}locked-feature{% endif %}" 
+                   onclick="{% if not user.userprofile.is_premium %}showPremiumModal(); return false;{% endif %}">
+                    <i class="fas fa-brain"></i>
+                    AI Insights
+                    <span class="premium-badge">PRO</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#unlimited-chat" class="nav-link {% if not user.userprofile.is_premium %}locked-feature{% endif %}" 
+                   onclick="{% if not user.userprofile.is_premium %}showPremiumModal(); return false;{% endif %}">
+                    <i class="fas fa-comments"></i>
+                    Unlimited AI Chat
+                    <span class="premium-badge">PRO</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#settings" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </a>
+            </div>
+        </div>
+    </nav>
+</aside>
+
+<!-- Main Content -->
+<main class="main-content" id="mainContent">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-subtitle">Welcome back, {{ user.first_name }}! Here's what's happening with your voice diary.</p>
+        </div>
+        <div class="page-actions">
+            <div class="dual-action-buttons">
+                <!-- Free Version Buttons -->
+                 
+                {% if not user.userprofile.is_premium %}
+                <button class="btn-free" onclick="basicExport()">
+                    <i class="fas fa-file-alt me-2"></i>Basic Export
+                </button>
+                <div class="action-divider"></div>
+                <button class="btn btn-secondary-custom" onclick="showPremiumModal()">
+                    <i class="fas fa-download me-2"></i>Premium Export
+                </button>
+                {% else %}
+                <!-- Premium Version Buttons -->
+                <button class="btn btn-secondary-custom" onclick="advancedExport()">
+                    <i class="fas fa-download me-2"></i>Export All
+                </button>
+                <div class="action-divider"></div>
+                <button class="btn-premium" onclick="premiumAnalytics()">
+                    <i class="fas fa-chart-line me-2"></i>Analytics
+                </button>
+                {% endif %}
+            </div>
+            
+            <a href="{% url 'diary:entry_create' %}" class="btn btn-primary-custom">
+    <i class="fas fa-plus me-2"></i>New Entry
+</a>
+
+        </div>
+    </div>
+
+    <!-- Stats Cards Row -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-microphone"></i>
+                </div>
+                {% comment %} <div class="stat-value">247</div> {% endcomment %}
+                <div class="stat-label">{{ total_entries }}</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-arrow-up"></i> total_entries
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                {% comment %} <div class="stat-value">$2,847</div> {% endcomment %}
+                <div class="stat-label">{{ total_expenses }}</div>
+                <div class="stat-change negative">
+                    <i class="fas fa-arrow-up "></i> total_expenses
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+
+    <!-- Free vs Premium Analytics Charts Section -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card-custom">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Expense Trends
+                    </h3>
+                    {% if not user.userprofile.is_premium %}
+                    <span class="premium-badge">PRO</span>
+                    {% endif %}
+                </div>
+                {% if user.userprofile.is_premium %}
+                    <div class="chart-container">
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                    <div class="feature-buttons">
+                        <button class="btn-premium" onclick="detailedExpenseReport()">
+                            <i class="fas fa-file-pdf me-1"></i>PDF Report
+                        </button>
+                        <button class="btn btn-secondary-custom" onclick="exportExpenseData()">
+                            <i class="fas fa-download me-1"></i>Export CSV
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="chart-container" style="position: relative;">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10;">
+                            <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
+                            <h6 style="color: var(--text-premium); margin-bottom: 8px;">Premium Feature</h6>
+                            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Unlock advanced analytics and insights</p>
+                            <div class="feature-buttons">
+                                <button class="btn-free" onclick="basicExpenseView()">
+                                    <i class="fas fa-eye me-1"></i>Basic View
+                                </button>
+                                <button class="btn premium-btn" onclick="showPremiumModal()">Upgrade Now</button>
+                            </div>
+                        </div>
+                        <canvas id="expenseChartLocked" style="opacity: 0.3;"></canvas>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+
+    <!-- Main Dashboard Grid -->
+    <div class="row">
+        <!-- Voice Recording Interface -->
+        <div class="col-lg-8 mb-4">
+            <div class="card-custom">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-microphone me-2"></i>
+                        Record Your Day
+                    </h3>
+                    <div class="card-actions">
+                        <button class="btn-ghost" title="Recording Settings">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button class="btn-ghost" title="Help">
+                            <i class="fas fa-question-circle"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="recording-container">
+                    <!-- Mode Toggle -->
+                    <div class="recording-modes">
+                        <div class="mode-toggle">
+                            <button class="mode-btn active" id="voiceModeBtn">
+                                <i class="fas fa-microphone me-2"></i>Voice
+                            </button>
+                            <button class="mode-btn" id="textModeBtn">
+                                <i class="fas fa-keyboard me-2"></i>Text
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Voice Input Area -->
+                    <div id="voiceInputArea" class="voice-input-area active">
+                        <button id="recordButton" class="record-button">
+                            <i id="recordIcon" class="fas fa-microphone"></i>
+                        </button>
+                        
+                        <p id="statusText" class="mb-3">Click the microphone to start recording</p>
+                        <button class="btn btn-secondary-custom btn-sm" onclick="testMic()">Test Microphone</button>
+                        <!-- Progress Bar -->
+                        <div class="progress-custom" id="progressContainer" style="display: none;">
+                            <div class="progress-bar-custom" id="progressBar"></div>
+                        </div>
+                        
+                        <!-- Waveform Visualization -->
+                        <div id="waveform" style="display: none;" class="mb-3">
+                            <div class="d-flex justify-content-center align-items-end gap-1" style="height: 40px;">
+                                <div class="bg-primary rounded" style="width: 3px; height: 15px; animation: wave 1.5s ease-in-out infinite;"></div>
+                                <div class="bg-primary rounded" style="width: 3px; height: 30px; animation: wave 1.5s ease-in-out infinite 0.2s;"></div>
+                                <div class="bg-primary rounded" style="width: 3px; height: 40px; animation: wave 1.5s ease-in-out infinite 0.4s;"></div>
+                                <div class="bg-primary rounded" style="width: 3px; height: 20px; animation: wave 1.5s ease-in-out infinite 0.6s;"></div>
+                                <div class="bg-primary rounded" style="width: 3px; height: 35px; animation: wave 1.5s ease-in-out infinite 0.8s;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Text Input Area -->
+                    <div id="textInputArea" class="text-input-area">
+                        <form id="textEntryForm">
+                            <div class="form-floating-custom">
+                                <textarea 
+                                    id="textEntry" 
+                                    class="form-control-custom w-100" 
+                                    placeholder="Type your diary entry here... e.g., 'I spent $25 on lunch today and need to call the dentist tomorrow'"
+                                    rows="6"
+                                ></textarea>
+                                <div class="char-counter">
+                                    <span id="charCount">0</span> / {% if user.userprofile.is_premium %}2000{% else %}500{% endif %} characters
+                                    {% if not user.userprofile.is_premium %}<small class="text-muted">(Premium: 2000 chars)</small>{% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-center gap-3">
+                                <button type="button" class="btn btn-secondary-custom" id="clearText">
+                                    <i class="fas fa-eraser me-2"></i>Clear
+                                </button>
+                                
+                                <!-- Free vs Premium Processing Buttons -->
+                                {% if user.userprofile.is_premium %}
+                                <button type="submit" class="btn btn-primary-custom">
+                                    <i class="fas fa-brain me-2"></i>Advanced AI Processing
+                                </button>
+                                {% else %}
+                                <div class="feature-buttons">
+                                    <button type="submit" class="btn-free">
+                                        <i class="fas fa-robot me-2"></i>Basic AI
+                                    </button>
+                                    <button type="button" class="btn premium-btn" onclick="showPremiumModal()">
+                                        <i class="fas fa-brain me-2"></i>Advanced AI
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="col-lg-4 mb-4">
+            <div class="card-custom">
+                <div class="card-header">
+                    <h3 class="card-title">Recent Activity</h3>
+                    <button class="btn-ghost">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                </div>
+                
+                <div class="activity-list">
+                    
+                </div>
+                
+                <div class="text-center mt-3">
+                    <div class="feature-buttons">
+                        {% if user.userprofile.is_premium %}
+                        <button class="btn-premium btn-sm">
+                            <i class="fas fa-history me-1"></i>Full History
+                        </button>
+                        {% else %}
+                        <button class="btn-free btn-sm" onclick="viewRecentActivity()">
+                            <i class="fas fa-eye me-1"></i>View Recent
+                        </button>
+                        <button class="btn premium-btn btn-sm" onclick="showPremiumModal()">
+                            <i class="fas fa-history me-1"></i>Full History
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Entries Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card-custom">
+                <div class="card-header">
+                    <h3 class="card-title">Recent Diary Entries</h3>
+                    <div class="card-actions">
+                        {% if user.userprofile.is_premium %}
+                        <button class="btn-ghost" title="Advanced Filter">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                        <button class="btn-ghost" title="Export All">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        {% else %}
+                        <button class="btn-ghost" title="Basic Filter" onclick="basicFilter()">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                        <button class="btn-ghost" title="Premium Export" onclick="showPremiumModal()">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Content Preview</th>
+                                <th>Expenses</th>
+                                <th>Tasks</th>
+                                
+                                <th>Actions</th>
+                            </tr>
+                        <tbody>
+  {% for entry in entries %}
+  <tr>
+    <td>{{ entry.entry_date|date:"M d, Y h:i A" }}</td>
+    <td>
+      <span class="badge bg-{% if entry.entry_type == 'voice' %}primary{% else %}secondary{% endif %}">
+        {{ entry.entry_type|title }}
+      </span>
+    </td>
+    <td>{{ entry.transcription|truncatechars:50 }}</td>
+    <td>
+      {% if entry.detected_expenses %}
+        {{ entry.detected_expenses.0 }}{# Show the first detected expense if exists #}
+      {% else %}
+        —
+      {% endif %}
+    </td>
+    <td>
+      {% if entry.detected_tasks %}
+        {{ entry.detected_tasks|length }}{# Show number of detected tasks #}
+      {% else %}
+        —
+      {% endif %}
+    </td>
+    
+    <td>
+      <button class="btn-ghost btn-sm" title="Play audio">
+        <i class="fas fa-play"></i>
+      </button>
+      <button class="btn-ghost btn-sm" title="Edit entry">
+        <i class="fas fa-edit"></i>
+      </button>
+      {% if user.userprofile.is_premium %}
+        <button class="btn-ghost btn-sm" title="AI Analysis">
+          <i class="fas fa-brain"></i>
+        </button>
+      {% else %}
+        <button class="btn-ghost btn-sm" title="Premium Feature" onclick="showPremiumModal()">
+          <i class="fas fa-lock"></i>
+        </button>
+      {% endif %}
+    </td>
+  </tr>
+  {% empty %}
+  <tr>
+    <td colspan="7" class="text-center">No entries yet. Start by adding your first voice or text entry!</td>
+  </tr>
+  {% endfor %}
+</tbody>
+
+                    </table>
+                </div>
+                
+                <!-- Table Footer with Free/Premium Options -->
+                <div class="card-footer" style="background: var(--bg-tertiary); border-top: 1px solid var(--border-light); margin: -24px -24px -24px -24px; margin-top: 24px; padding: 16px 24px;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">
+                            {% if user.userprofile.is_premium %}
+                            Showing all entries • Unlimited storage
+                            {% else %}
+                            Showing recent 50 entries • <a href="#" onclick="showPremiumModal()" style="color: var(--text-premium);">Upgrade for unlimited</a>
+                            {% endif %}
+                        </span>
+                        <div class="feature-buttons">
+                            {% if user.userprofile.is_premium %}
+                            <button class="btn-premium btn-sm">
+                                <i class="fas fa-infinity me-1"></i>View All
+                            </button>
+                            {% else %}
+                            <button class="btn-free btn-sm">
+                                <i class="fas fa-eye me-1"></i>View 50
+                            </button>
+                            <button class="btn premium-btn btn-sm" onclick="showPremiumModal()">
+                                <i class="fas fa-infinity me-1"></i>View All
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- AI Chatbot Widget -->
+<div class="chat-widget">
+    <button class="chat-toggle-btn" id="chatToggle">
+        <i class="fas fa-robot"></i>
+        <span class="chat-badge">AI</span>
+    </button>
+    
+    <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+            <h5 class="chat-title">
+                <i class="fas fa-robot me-2"></i>
+                {% if user.userprofile.is_premium %}AI Assistant{% else %}AI Assistant (Limited){% endif %}
+            </h5>
+            <button class="chat-close" id="chatClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <!-- Chat Messages Area -->
+        <div class="chat-messages" id="chatMessages">
+            {% if user.userprofile.is_premium %}
+            <!-- Premium Chat Experience -->
+            <div class="chat-message">
+                <div class="chat-avatar">🤖</div>
+                <div class="chat-bubble">
+                    Hi {{ user.first_name }}! I'm your AI diary assistant. I can help you search through all your entries, analyze patterns, and provide insights. What would you like to know?
+                </div>
+            </div>
+            {% else %}
+            <!-- Free Chat Experience -->
+            <div class="chat-free-lock">
+                <div class="lock-icon">🤖</div>
+                <h6>AI Assistant (Free Plan)</h6>
+                <p>You have <strong>5 free questions</strong> today. Upgrade for unlimited AI conversations!</p>
+                <div class="feature-buttons">
+                    <button class="btn-free btn-sm" onclick="useFreeChat()">
+                        <i class="fas fa-comment me-1"></i>Ask Question (5 left)
+                    </button>
+                    <button class="btn premium-btn btn-sm" onclick="showPremiumModal()">
+                        <i class="fas fa-infinity me-1"></i>Unlimited Chat
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Chat Input -->
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                <input type="text" 
+                       class="chat-input" 
+                       placeholder="{% if user.userprofile.is_premium %}Ask me anything about your diary...{% else %}Ask a question (5 remaining today){% endif %}"
+                       id="chatInput"
+                       {% if not user.userprofile.is_premium %}disabled{% endif %}>
+                <button class="chat-send-btn" 
+                        id="chatSend"
+                        {% if not user.userprofile.is_premium %}onclick="showPremiumModal()"{% endif %}>
+                    {% if user.userprofile.is_premium %}
+                    <i class="fas fa-paper-plane"></i>
+                    {% else %}
+                    <i class="fas fa-lock"></i>
+                    {% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Processing Modal -->
+<div class="modal fade" id="processingModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-5">
+                <div class="loading-spinner mb-4"></div>
+                <h5 class="mb-3">🤖 AI is Processing Your Entry...</h5>
+                <p class="text-muted mb-4">
+                    {% if user.userprofile.is_premium %}
+                    Advanced analysis: speech recognition, task extraction, expense detection, mood analysis, and personalized insights...
+                    {% else %}
+                    Basic analysis: speech recognition, simple task detection, and basic mood detection...
+                    {% endif %}
+                </p>
+                <div class="progress-custom">
+                    <div class="progress-bar-custom" id="modalProgressBar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Modal -->
+<div class="modal fade" id="resultsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-brain text-primary me-2"></i>
+                    {% if user.userprofile.is_premium %}Advanced AI Analysis Results{% else %}Basic AI Analysis Results{% endif %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="resultsContent">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">
+                    Close
+                </button>
+                {% if user.userprofile.is_premium %}
+                <button type="button" class="btn-premium" id="saveResults">
+                    <i class="fas fa-save me-2"></i>
+                    Save to Diary
+                </button>
+                <button type="button" class="btn btn-primary-custom" onclick="generateInsights()">
+                    <i class="fas fa-brain me-2"></i>
+                    Generate Insights
+                </button>
+                {% else %}
+                <button type="button" class="btn-free" id="saveResults">
+                    <i class="fas fa-save me-2"></i>
+                    Save Basic Results
+                </button>
+                <button type="button" class="btn premium-btn" onclick="showPremiumModal()">
+                    <i class="fas fa-brain me-2"></i>
+                    Get Full Insights
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Free Features Modal -->
+<div class="modal fade" id="freeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: var(--free-gradient); color: white;">
+                <h5 class="modal-title">
+                    <i class="fas fa-gift me-2"></i>
+                    Free Plan Features
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: invert(0);"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 style="color: var(--text-free);">✅ What's Included (Free)</h6>
+                        <ul class="premium-features-list">
+                            <li>Up to 50 diary entries</li>
+                            <li>Basic voice transcription</li>
+                            <li>Simple task detection</li>
+                            <li>Basic expense tracking</li>
+                            <li>5 AI chat questions/day</li>
+                            <li>Basic mood tracking</li>
+                            <li>Simple export (TXT)</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 style="color: var(--text-premium);">🔒 Premium Features</h6>
+                        <ul class="premium-features-list">
+                            <li>Unlimited diary entries</li>
+                            <li>Advanced AI transcription</li>
+                            <li>Smart task extraction</li>
+                            <li>Advanced expense analytics</li>
+                            <li>Unlimited AI conversations</li>
+                            <li>Mood pattern analysis</li>
+                            <li>PDF/Word export</li>
+                            <li>Advanced charts & insights</li>
+                            <li>Priority support</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">
+                    Continue with Free
+                </button>
+                <button type="button" class="btn premium-btn" onclick="showPremiumModal()">
+                    <i class="fas fa-crown me-2"></i>
+                    Upgrade to Premium
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Premium Upgrade Modal -->
+<div class="modal fade premium-modal" id="premiumModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-crown me-2"></i>
+                    Upgrade to Premium
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <h3 style="color: var(--text-premium);">Unlock the Full Power of AI</h3>
+                    <p class="text-muted">Get unlimited access to all premium features</p>
+                </div>
+                
+                <div class="pricing-card">
+                    <div class="pricing-price">₹199<small>/month</small></div>
+                    <p class="text-muted">Cancel anytime • 7-day free trial</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>🎤 Recording & AI</h6>
+                        <ul class="premium-features-list">
+                            <li>Unlimited voice recordings</li>
+                            <li>Advanced AI transcription</li>
+                            <li>Smart task extraction</li>
+                            <li>Intelligent expense detection</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>📊 Analytics & Export</h6>
+                        <ul class="premium-features-list">
+                            <li>Advanced mood analytics</li>
+                            <li>Expense trend charts</li>
+                            <li>PDF/Word export</li>
+                            <li>Unlimited AI conversations</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">
+                    Maybe Later
+                </button>
+                <button type="button" class="btn premium-btn" onclick="subscribeToPremium()">
+                    <i class="fas fa-crown me-2"></i>
+                    Start Free Trial
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Dashboard-specific JavaScript can go here if needed
+    // All the common functionality is already in base.html
+    
+    // Add any dashboard-specific functions here
+    function detailedExpenseReport() {
+        showToast('Generating detailed expense report...', 'premium');
+        // Implement detailed report generation
+    }
+    
+    function exportExpenseData() {
+        showToast('Exporting expense data to CSV...', 'info');
+        // Implement CSV export
+    }
+    
+    
+    
+    function premiumAnalytics() {
+        showToast('Loading premium analytics dashboard...', 'premium');
+        // Implement premium analytics
+    }
+    
+    function viewRecentActivity() {
+        showToast('Showing recent activity...', 'info');
+        // Implement recent activity view
+    }
+    
+    function basicFilter() {
+        showToast('Applying basic filters...', 'info');
+        // Implement basic filtering
+    }
+    
+    function generateInsights() {
+        showToast('Generating AI insights...', 'premium');
+        // Implement insights generation
+    }
+
+    // Initialize charts if premium user
+    var isPremium = {% if user.userprofile.is_premium %}true{% else %}false{% endif %};
+    
+    if (isPremium) {
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize expense chart
+            const expenseCtx = document.getElementById('expenseChart');
+            if (expenseCtx) {
+                new Chart(expenseCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [{
+                            label: 'Expenses',
+                            data: [1200, 1900, 3000, 5000, 2000, 3000],
+                            borderColor: 'rgb(139, 92, 246)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#f1f3f4'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#c1c5c9'
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#c1c5c9'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            
+            }
+        });
+    }
+</script>
+{% endblock %}
