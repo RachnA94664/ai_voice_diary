@@ -7,7 +7,7 @@ class DiaryEntry(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     audio_file = models.FileField(upload_to='audio/', blank=True, null=True)  # For voice diary
-    
+
     def __str__(self):
         return self.title
 

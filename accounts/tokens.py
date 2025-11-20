@@ -9,3 +9,5 @@ class EmailVerificationTokenGenerator(PasswordResetTokenGenerator):
         )
 
 account_activation_token = EmailVerificationTokenGenerator()
+
+
