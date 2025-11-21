@@ -1,0 +1,41 @@
+{% extends "diary/base.html" %}
+
+{% block title %}Diary Entry Detail | AI Voice Diary{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:600px;margin:0 auto;padding:2rem 0;">
+    <div class="card" style="background:#202137;border-radius:14px;padding:2rem;">
+        <h2 style="color:#ddd;font-size:2rem;font-weight:700;">Diary Entry Detail</h2>
+        <dl style="color:#bbb;font-size:1.12rem;">
+            <dt style="font-weight:700;">Created At:</dt>
+            <dd style="margin-bottom:10px;">{{ entry.created_at|date:"M d, Y, H:i" }}</dd>
+            <dt style="font-weight:700;">Type:</dt>
+            <dd style="margin-bottom:10px;">{{ entry.entry_type|title }}</dd>
+            <dt style="font-weight:700;">Status:</dt>
+            <dd style="margin-bottom:10px;">{{ entry.status|title }}</dd>
+            {% if entry.entry_type == "text" %}
+                <dt style="font-weight:700;">Text Content:</dt>
+                <dd style="background:#27294d;padding:12px;border-radius:6px;margin-bottom:12px;">{{ entry.transcription }}</dd>
+            {% else %}
+                <dt style="font-weight:700;">Audio File:</dt>
+                <dd>
+                    {% if entry.audio_file %}
+                        <audio controls src="{{ entry.audio_file.url }}" style="width:100%;margin-bottom:12px;"></audio>
+                    {% else %}
+                        <span style="color:#aaa;">No audio uploaded.</span>
+                    {% endif %}
+                </dd>
+            {% endif %}
+            <dt style="font-weight:700;">Expense (auto):</dt>
+            <dd style="color:#ffd86b;">₹{{ entry.total_expense }}</dd>
+            <dt style="font-weight:700;">AI Sentiment:</dt>
+            <dd style="margin-bottom:10px;">{{ entry.ai_sentiment|default:"-" }}</dd>
+            <dt style="font-weight:700;">AI Insights:</dt>
+            <dd style="margin-bottom:10px;">{{ entry.ai_insights|default:"-" }}</dd>
+        </dl>
+        <a href="{% url 'diary:entry_update' entry.id %}" style="color:#ecc9ff;margin-right:16px;">Edit</a>
+        <a href="{% url 'diary:entry_delete' entry.id %}" style="color:#ff9494;">Delete</a>
+        <a href="{% url 'diary:entry_list' %}" style="float:right;color:#7eafff;">Back to Entries</a>
+    </div>
+</div>
+{% endblock %}

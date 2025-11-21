@@ -1,0 +1,75 @@
+{% extends "diary/base.html" %}
+
+{% block title %}My Diary Entries | AI Voice Diary{% endblock %}
+
+{% block content %}
+<form method="get" class="search-bar" style="display:flex;align-items:center;gap:16px;background:#232547;border-radius:14px;padding:19px 28px 14px 16px;margin-bottom:28px;box-shadow:0 2px 24px rgba(60,103,227,0.1);">
+    <input type="text" name="search" placeholder="🔎 Search text..." value="{{ search_query|default:'' }}" 
+        style="background:#1f2037;color:#fff;border:none;border-radius:8px;padding:9px 14px;width:190px;font-size:1rem;outline:none;">
+    <select name="type" style="background:#202137;color:#9cd671;border:none;border-radius:8px;padding:9px 14px;font-size:1rem;">
+        <option value="">All Types</option>
+        <option value="text" {% if entry_type == 'text' %}selected{% endif %}>Text</option>
+        <option value="voice" {% if entry_type == 'voice' %}selected{% endif %}>Voice</option>
+    </select>
+    <span style="color:#788;">From:</span>
+    <input type="date" name="start" value="{{ start_date|default:'' }}" 
+        style="background:#1f2037;color:#fff;border:none;border-radius:8px;padding:8px 10px;width:132px;">
+    <span style="color:#788;">To:</span>
+    <input type="date" name="end" value="{{ end_date|default:'' }}" 
+        style="background:#1f2037;color:#fff;border:none;border-radius:8px;padding:8px 10px;width:132px;">
+    <button type="submit"
+        style="background:linear-gradient(90deg,#866cfb,#3c67e3);color:#fff;border:none;border-radius:22px;padding:9px 28px;font-weight:700;font-size:1rem;box-shadow:0 1px 8px #3c67e332;cursor:pointer;transition:background 0.2s;">
+        Filter
+    </button>
+    <a href="{% url 'diary:entry_list' %}" style="color:#7eafff;font-size:1rem;margin-left:10px;">Clear</a>
+</form>
+
+<div class="container entry-list-container" style="max-width:900px;margin:0 auto;padding:2rem 0;">
+    <div class="card" style="background:#202137;border-radius:14px;padding:2rem;">
+        <h2 style="color:#ddd;font-size:2rem;font-weight:700;margin-bottom:1.2rem;">My Diary Entries</h2>
+        <table style="width:100%;border-collapse:separate;border-spacing:0 12px;">
+          <thead>
+            <tr style="color:#aaa;font-size:1rem;">
+              <th style="text-align:left;">Created At</th>
+              <th style="text-align:left;">Type</th>
+              <th style="text-align:left;">Status</th>
+              <th style="text-align:left;">Expense</th>
+              <th style="text-align:left;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in page_obj %}
+            <tr style="background:#27294d;border-radius:10px;">
+              <td style="padding:10px 16px;color:#e3e3e3;font-size:1.07em;">{{ entry.created_at|date:"M. d, Y, P" }}</td>
+              <td style="padding:10px 16px;">
+                <span style="background:#3c67e3;border-radius:4px;padding:3px 9px;color:#fff;font-size:0.95em;margin-right:6px;">
+                  {{ entry.entry_type|title }}
+                </span>
+              </td>
+              <td style="padding:10px 16px;color:#9cd671;">{{ entry.status|title }}</td>
+              <td style="padding:10px 16px;color:#ffd86b;">₹{{ entry.total_expense }}</td>
+              <td style="padding:10px 16px;">
+                <a href="{% url 'diary:entry_detail' entry.id %}" style="color:#7eafff;text-decoration:none;margin-right:8px;">View</a>
+                <a href="{% url 'diary:entry_update' entry.id %}" style="color:#ecc9ff;text-decoration:none;margin-right:8px;">Edit</a>
+                <a href="{% url 'diary:entry_delete' entry.id %}" style="color:#ff9494;text-decoration:none;">Delete</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" style="color:#aaa;text-align:center;padding:2rem;">No entries found.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="pagination" style="margin-top:2rem;">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" style="margin-right:18px;">Previous</a>
+          {% endif %}
+          <span style="font-weight:bold;color:#ccc;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" style="margin-left:18px;">Next</a>
+          {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

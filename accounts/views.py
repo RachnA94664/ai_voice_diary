@@ -74,7 +74,7 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            return redirect('dashboard')  # Change to your actual main page
+            return redirect('diary:dashboard')  # ← REQUIRED FIX
         else:
             messages.error(request, 'Invalid username or password.')
 

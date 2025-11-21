@@ -1,0 +1,35 @@
+{% extends "diary/base.html" %}
+
+{% block title %}Create New Entry | AI Voice Diary{% endblock %}
+
+{% block content %}
+<div class="container entry-form-container" style="max-width:600px;margin:0 auto;padding:2rem 0;">
+    <div class="card" style="background:#202137;border-radius:14px;padding:2rem;">
+        <h2 style="color:#ddd;font-size:2rem;font-weight:700;margin-bottom:1.2rem;">
+            <i class="fas fa-microphone" style="margin-right:8px;color:#866cfb;"></i>
+            Create New Diary Entry
+        </h2>
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label for="entry_type" style="color:#bbb;">Entry Type:</label>
+                <select name="entry_type" id="entry_type" class="form-control" style="background:#27294d;color:#fff;border:none;padding:7px 12px;border-radius:6px;">
+                    <option value="text">Text</option>
+                    <option value="voice">Voice</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label for="content" style="color:#bbb;">Text Content:</label>
+                <textarea name="content" id="content" rows="4" cols="50" placeholder="Write your diary entry..." class="form-control" style="width:100%;background:#27294d;color:#fff;border:none;padding:10px;border-radius:6px;"></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label for="audio_file" style="color:#bbb;">Upload Audio (for Voice Entry):</label>
+                <input type="file" name="audio_file" id="audio_file" accept="audio/*" class="form-control" style="margin-left:1rem;">
+            </div>
+            <button type="submit" class="btn btn-primary" style="background:linear-gradient(84deg,#866cfb 40%,#3c67e3 80%);color:#fff;padding:10px 32px;font-size:1rem;border:none;border-radius:24px;box-shadow:0 2px 12px rgba(134,108,251,0.2),0 4px 16px rgba(60,103,227,0.08);font-weight:bold;cursor:pointer;">
+                <i class="fas fa-plus-circle" style="margin-right:10px;"></i> Create Entry
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

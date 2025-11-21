@@ -1,26 +1,20 @@
-{% extends 'base.html' %}
+{% extends "diary/base.html" %}
 {% load static %}
 
-{% block title %}Dashboard - AI Voice Diary (Advanced){% endblock %}
+{% block title %}Dashboard - AI Voice Diary{% endblock %}
 
 {% block content %}
-<!-- Sidebar Overlay -->
-<!-- <div class="sidebar-overlay" id="sidebarOverlay"></div> -->
-
 <!-- ADVANCED SIDEBAR -->
 <aside class="sidebar" id="sidebar">
     <nav>
-
         <div class="nav-section">
             <div class="nav-section-title">Main</div>
-            <a href="/diary/dashboard/" class="nav-link">
+            <a href="/diary/dashboard/" class="nav-link active">
                 <i class="fas fa-home"></i><span>Dashboard</span>
             </a>
-
             <a href="/diary/record/" class="nav-link">
                 <i class="fas fa-microphone"></i><span>New Entry</span>
             </a>
-
             <a href="/diary/entries/" class="nav-link">
                 <i class="fas fa-book"></i><span>My Entries</span>
             </a>
@@ -28,8 +22,13 @@
 
         <div class="nav-section">
             <div class="nav-section-title">Analytics</div>
-            <a href="/insights/" class="nav-link">
+            <a href="/diary/insights/" class="nav-link {% if not user.is_premium %}locked{% endif %}">
                 <i class="fas fa-chart-line"></i><span>Insights</span>
+                {% if not user.is_premium %}<i class="fas fa-lock ms-auto"></i>{% endif %}
+            </a>
+            <a href="/diary/export/" class="nav-link {% if not user.is_premium %}locked{% endif %}">
+                <i class="fas fa-download"></i><span>Export Data</span>
+                {% if not user.is_premium %}<i class="fas fa-lock ms-auto"></i>{% endif %}
             </a>
         </div>
 
@@ -38,23 +37,24 @@
             <a href="/accounts/profile/" class="nav-link">
                 <i class="fas fa-user"></i><span>Profile</span>
             </a>
-
             <a href="/accounts/settings/" class="nav-link">
                 <i class="fas fa-cog"></i><span>Settings</span>
             </a>
+            {% if not user.is_premium %}
+            <a href="/accounts/upgrade/" class="nav-link upgrade-link">
+                <i class="fas fa-crown"></i><span>Upgrade to Premium</span>
+            </a>
+            {% endif %}
         </div>
-
     </nav>
 </aside>
 
-
-<!-- NAVBAR -->
+<!-- TOP NAVBAR -->
 <nav class="top-navbar">
     <div class="left-group">
         <button id="sidebarToggle" class="icon-btn">
             <i class="fas fa-bars"></i>
         </button>
-
         <a href="/diary/dashboard/" class="brand">
             <i class="fas fa-microphone-alt brand-icon"></i>
             <span>AI Voice Diary</span>
@@ -62,6 +62,12 @@
     </div>
 
     <div class="right-group">
+        {% if user.trial_days_left and user.trial_days_left > 0 %}
+        <div class="trial-badge">
+            <i class="fas fa-clock"></i> {{ user.trial_days_left }} days left in trial
+        </div>
+        {% endif %}
+
         <button class="icon-btn" title="Notifications">
             <i class="fas fa-bell"></i>
         </button>
@@ -72,175 +78,310 @@
                 <i class="fas fa-user"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end glass-dropdown">
-                <li>
-                    <a class="dropdown-item" href="/accounts/profile/">
-                        <i class="fas fa-user me-2"></i> Profile
-                    </a>
+                <li class="dropdown-header">
+                    {% if user.is_premium %}
+                    <span class="badge badge-premium"><i class="fas fa-crown"></i> Premium</span>
+                    {% else %}
+                    <span class="badge badge-free">Free Plan</span>
+                    {% endif %}
                 </li>
                 <li><hr class="dropdown-divider"></li>
-                <li>
-                    <a class="dropdown-item" href="/accounts/logout/">
-                        <i class="fas fa-sign-out-alt me-2"></i> Logout
-                    </a>
-                </li>
+                <li><a class="dropdown-item" href="/accounts/profile/"><i class="fas fa-user me-2"></i> Profile</a></li>
+                <li><a class="dropdown-item" href="/accounts/settings/"><i class="fas fa-cog me-2"></i> Settings</a></li>
+                {% if not user.is_premium %}
+                <li><a class="dropdown-item text-warning" href="/accounts/upgrade/"><i class="fas fa-crown me-2"></i> Upgrade</a></li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="/accounts/logout/"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
             </ul>
         </div>
         {% else %}
-        <a href="/accounts/login/" class="login-btn">
-            <i class="fas fa-sign-in-alt me-2"></i> Login
-        </a>
+        <a href="/accounts/login/" class="login-btn"><i class="fas fa-sign-in-alt me-2"></i> Login</a>
         {% endif %}
     </div>
 </nav>
 
-
-<!-- Main Content -->
+<!-- MAIN CONTENT -->
 <main class="main-content">
     <!-- Page Header -->
-    <div style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+    <div class="page-header">
         <div>
-            <h1 style="font-size: 2.25rem; font-weight: 700; margin-bottom: 0.25rem;">
-                Welcome back{% if user.first_name %}, {{ user.first_name }}{% endif %}! 👋
-            </h1>
-            <p style="color: #6b7280; font-size: 1rem; margin:0;">Here's what's happening with your voice diary today.</p>
+            <h1>Welcome back{% if user.first_name %}, {{ user.first_name }}{% endif %}! 👋</h1>
+            <p class="subtitle">Here's what's happening with your voice diary today.</p>
         </div>
-
-        <!-- Quick actions -->
-        <div style="display:flex; gap:0.5rem;">
-            <a href="/diary/record/" class="btn-primary-custom"><i class="fas fa-microphone me-2"></i>Record</a>
-            <button id="openChatBtn" class="btn-secondary-custom"><i class="fas fa-robot me-2"></i>Analyze (Chat)</button>
+        <div class="header-actions">
+            <a href="/diary/record/" class="btn-primary-custom">
+                <i class="fas fa-microphone me-2"></i>Record
+            </a>
+            <button id="openChatBtn" class="btn-secondary-custom">
+                <i class="fas fa-robot me-2"></i>AI Assistant
+                {% if not user.is_premium %}<span class="badge-limit">({{ user.chat_questions_left }}/5 today)</span>{% endif %}
+            </button>
         </div>
     </div>
 
-    <!-- Stats Cards (simplified) -->
+    <!-- Stats Cards -->
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-book"></i></div>
-            <div class="stat-value" id="totalEntries">{{ total_entries|default:0 }}</div>
-            <div class="stat-label">Total Entries</div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalEntries">{{ total_entries|default:0 }}</div>
+                <div class="stat-label">Total Entries</div>
+                {% if not user.is_premium and total_entries >= 50 %}
+                <div class="stat-limit">Limit: 50 entries reached</div>
+                {% endif %}
+            </div>
         </div>
 
         <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-wallet"></i></div>
-            <div class="stat-value" id="totalExpenses">₹{{ total_expenses|default:0 }}</div>
-            <div class="stat-label">Total Expenses</div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalExpenses">₹{{ total_expenses|default:0 }}</div>
+                <div class="stat-label">Total Expenses</div>
+                <div class="stat-trend">
+                    {% if expense_trend > 0 %}+{% endif %}{{ expense_trend }}% this month
+                </div>
+            </div>
         </div>
 
         <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-clock"></i></div>
-            <div class="stat-value" id="avgEntryLength">—</div>
-            <div class="stat-label">Avg Entry Length</div>
+            <div class="stat-content">
+                <div class="stat-value" id="avgEntryLength">{{ avg_entry_length|default:"—" }}</div>
+                <div class="stat-label">Avg Entry Length</div>
+            </div>
+        </div>
+
+        <div class="stat-card {% if not user.is_premium %}locked-card{% endif %}">
+            <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ monthly_insights|default:"—" }}</div>
+                <div class="stat-label">Monthly Insights</div>
+                {% if not user.is_premium %}
+                <div class="upgrade-overlay">
+                    <i class="fas fa-lock"></i>
+                    <a href="/accounts/upgrade/">Upgrade</a>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 
     <div class="row">
-        <!-- Left Column: Recorder + Chatbot -->
+        <!-- Left Column: Recorder + AI Chat -->
         <div class="col-lg-7 mb-4">
             <div class="card-custom">
-                <h3 class="card-title"><i class="fas fa-microphone"></i> Record & Submit</h3>
+                <h3 class="card-title"><i class="fas fa-microphone"></i> Create New Entry</h3>
 
-                <div class="recording-container">
-                    <!-- Mode Toggle -->
-                    <div class="mode-toggle">
-                        <button class="mode-btn active" id="voiceModeBtn"><i class="fas fa-microphone me-2"></i>Voice</button>
-                        <button class="mode-btn" id="textModeBtn"><i class="fas fa-keyboard me-2"></i>Text</button>
+                <!-- Mode Toggle -->
+                <div class="mode-toggle">
+                    <button class="mode-btn active" id="voiceModeBtn">
+                        <i class="fas fa-microphone me-2"></i>Voice
+                    </button>
+                    <button class="mode-btn" id="textModeBtn">
+                        <i class="fas fa-keyboard me-2"></i>Text
+                    </button>
+                </div>
+
+                <!-- Voice Input -->
+                <div id="voiceInputArea">
+                    <div class="recording-container">
+                        <button id="recordButton" class="record-button" aria-label="Start recording">
+                            <i class="fas fa-microphone" id="recordIcon"></i>
+                        </button>
+                        <div class="recording-info">
+                            <div id="statusText">Click the microphone to start recording</div>
+                            <div id="recordingTime" style="display:none;">00:00</div>
+                        </div>
                     </div>
 
-                    <!-- Voice Input: implements MediaRecorder, uploads audio to backend -->
-                    <div id="voiceInputArea">
-                        <div style="display:flex; align-items:center; gap:1rem;">
-                            <button id="recordButton" class="record-button" aria-pressed="false">
-                                <i class="fas fa-microphone" id="recordIcon"></i>
-                            </button>
+                    <div class="recording-controls">
+                        <select id="languageSelect" aria-label="Select language">
+                            <option value="en-US">English (US)</option>
+                            <option value="en-IN">English (India)</option>
+                            <option value="hi-IN">Hindi</option>
+                            <option value="es-ES">Spanish</option>
+                            <option value="fr-FR">French</option>
+                        </select>
 
-                            <div>
-                                <div id="statusText" style="color:#6b7280;">Click the microphone to start recording</div>
-                                <div id="recordingTime" style="display:none; font-weight:600;">00:00</div>
-                            </div>
+                        <button id="uploadLocalBtn" class="btn-secondary-custom">
+                            <i class="fas fa-upload me-2"></i>Upload Audio
+                        </button>
+
+                        <div class="processing-badge" style="display:none;" id="processingBadge">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Processing with AI...
                         </div>
-
-                        <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-                            <select id="languageSelect" aria-label="Recording language">
-                                <option value="en-US">English (US)</option>
-                                <option value="en-IN">English (India)</option>
-                                <option value="hi-IN">Hindi</option>
-                                <!-- Add more language options as supported by your speech-to-text backend -->
-                            </select>
-
-                            <button id="uploadLocalBtn" class="btn-secondary-custom">Upload audio</button>
-                        </div>
-
-                        <div id="recordingPreview" style="margin-top:1rem;"></div>
                     </div>
 
-                    <!-- Text Input: large editor area -->
-                    <div id="textInputArea" style="display:none;">
-                        <form id="textEntryForm" method="post" action="/diary/create-text-entry/">
-                            {% csrf_token %}
-                            <textarea name="content" id="textEntry" rows="8" placeholder="Type your diary entry here..." maxlength="5000" style="width:100%; padding:1rem; border-radius:12px; background:#f8fafc; border:1px solid #e6eef6;"></textarea>
+                    <div id="recordingPreview"></div>
 
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
-                                <div style="color:#6b7280;"> <span id="charCount">0</span> / 5000</div>
-                                <div style="display:flex; gap:0.5rem;">
-                                    <button type="button" class="btn-secondary-custom" onclick="clearTextEntry()"><i class="fas fa-eraser me-2"></i>Clear</button>
-                                    <button type="submit" class="btn-primary-custom"><i class="fas fa-paper-plane me-2"></i>Submit</button>
+                    <!-- Processing Options -->
+                    <div class="processing-options" id="processingOptions" style="display:none;">
+                        <h4>Choose Processing Mode:</h4>
+                        <div class="processing-cards">
+                            <div class="processing-card">
+                                <div class="processing-header">
+                                    <i class="fas fa-bolt"></i>
+                                    <span>Free Processing</span>
                                 </div>
+                                <ul class="processing-features">
+                                    <li><i class="fas fa-check"></i> Basic transcription</li>
+                                    <li><i class="fas fa-check"></i> Simple expense detection</li>
+                                    <li><i class="fas fa-times"></i> No advanced AI analysis</li>
+                                </ul>
+                                <button class="btn-process-free" data-mode="free">
+                                    Process (Free)
+                                </button>
                             </div>
-                        </form>
-                    </div>
 
+                            <div class="processing-card premium-card">
+                                <div class="processing-header">
+                                    <i class="fas fa-crown"></i>
+                                    <span>Premium Processing</span>
+                                </div>
+                                <ul class="processing-features">
+                                    <li><i class="fas fa-check"></i> Advanced transcription</li>
+                                    <li><i class="fas fa-check"></i> Smart expense categorization</li>
+                                    <li><i class="fas fa-check"></i> AI sentiment analysis</li>
+                                    <li><i class="fas fa-check"></i> Context-aware insights</li>
+                                </ul>
+                                <button class="btn-process-premium" data-mode="premium" {% if not user.is_premium %}disabled{% endif %}>
+                                    {% if user.is_premium %}Process (Premium){% else %}Upgrade Required{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text Input -->
+                <div id="textInputArea" style="display:none;">
+                    <form id="textEntryForm" method="post" action="/diary/create-text-entry/">
+                        {% csrf_token %}
+                        <textarea 
+                            name="content" 
+                            id="textEntry" 
+                            rows="8" 
+                            placeholder="Type your diary entry here..." 
+                            maxlength="{% if user.is_premium %}2000{% else %}500{% endif %}"
+                            class="text-entry-area"
+                        ></textarea>
+
+                        <div class="text-entry-footer">
+                            <div class="char-counter">
+                                <span id="charCount">0</span> / {% if user.is_premium %}2000{% else %}500{% endif %}
+                                {% if not user.is_premium %}
+                                <a href="/accounts/upgrade/" class="upgrade-link-small">
+                                    <i class="fas fa-crown"></i> Upgrade for 2000 chars
+                                </a>
+                                {% endif %}
+                            </div>
+                            <div class="text-entry-actions">
+                                <button type="button" class="btn-secondary-custom" onclick="clearTextEntry()">
+                                    <i class="fas fa-eraser me-2"></i>Clear
+                                </button>
+                                <button type="button" class="btn-primary-custom" id="processTextBtn">
+                                    <i class="fas fa-paper-plane me-2"></i>Process & Submit
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
 
                 <hr />
 
-                <!-- Chatbot panel (collapsible) -->
+                <!-- AI Chatbot Panel -->
                 <div id="chatPanel" style="display:none;">
-                    <h4><i class="fas fa-robot"></i> Diary Chat Analyst</h4>
-                    <p style="color:#6b7280;">Ask the assistant about your diary (summary, mood trends, highlights). The assistant can access only your entries.</p>
+                    <div class="chat-header">
+                        <h4><i class="fas fa-robot"></i> AI Diary Assistant</h4>
+                        {% if not user.is_premium %}
+                        <span class="chat-limit">{{ user.chat_questions_left }}/5 questions today</span>
+                        {% endif %}
+                    </div>
+                    <p class="chat-description">Ask your AI assistant about diary patterns, expenses, mood trends, and insights.</p>
 
-                    <div id="chatWindow" style="height:320px; overflow:auto; border:1px solid #e6eef6; padding:1rem; border-radius:8px; background:#ffffff;">
-                        <!-- messages will be injected here -->
+                    <div id="chatWindow" class="chat-window">
+                        <div class="chat-message assistant">
+                            <i class="fas fa-robot chat-icon"></i>
+                            <div class="chat-bubble">
+                                Hello! I can help you analyze your diary entries. Try asking:
+                                <ul>
+                                    <li>"Show my expense trends"</li>
+                                    <li>"Summarize this week's entries"</li>
+                                    <li>"What was my mood pattern?"</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                        <input id="chatInput" type="text" placeholder="Ask something about your diary (e.g. 'show last week's highlights')" style="flex:1; padding:0.5rem; border-radius:8px; border:1px solid #e6eef6;" />
-                        <button id="sendChatBtn" class="btn-primary-custom">Send</button>
+                    <div class="chat-input-container">
+                        <input 
+                            id="chatInput" 
+                            type="text" 
+                            placeholder="Ask something about your diary..." 
+                            class="chat-input"
+                            {% if not user.is_premium and user.chat_questions_left <= 0 %}disabled{% endif %}
+                        />
+                        <button id="sendChatBtn" class="btn-chat-send" {% if not user.is_premium and user.chat_questions_left <= 0 %}disabled{% endif %}>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
                     </div>
 
+                    {% if not user.is_premium and user.chat_questions_left <= 0 %}
+                    <div class="chat-limit-reached">
+                        Daily question limit reached. <a href="/accounts/upgrade/">Upgrade for unlimited questions</a>
+                    </div>
+                    {% endif %}
                 </div>
-
             </div>
         </div>
 
-        <!-- Right Column: Recent Activity + Filters -->
+        <!-- Right Column: Recent Activity -->
         <div class="col-lg-5 mb-4">
             <div class="card-custom">
                 <h3 class="card-title"><i class="fas fa-history"></i> Recent Activity</h3>
 
-                <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                    <input id="filterQuery" type="text" placeholder="Search content..." style="flex:1; padding:0.5rem; border-radius:8px; border:1px solid #e6eef6;" />
-                    <input id="filterDate" type="date" style="padding:0.5rem; border-radius:8px; border:1px solid #e6eef6;" />
-                    <button id="applyFilterBtn" class="btn-secondary-custom">Filter</button>
+                <!-- Filters -->
+                <div class="filters-container">
+                    <input 
+                        id="filterQuery" 
+                        type="text" 
+                        placeholder="Search entries..." 
+                        class="filter-input"
+                    />
+                    <input 
+                        id="filterDate" 
+                        type="date" 
+                        class="filter-input"
+                    />
+                    <button id="applyFilterBtn" class="btn-filter">
+                        <i class="fas fa-filter"></i>
+                    </button>
                 </div>
 
-                <div id="activityList" class="activity-list" style="max-height:420px; overflow:auto;">
-                    <!-- Entry items inserted by JS -->
-                </div>
+                <!-- Activity List -->
+                <div id="activityList" class="activity-list"></div>
 
-                <div style="display:flex; gap:0.5rem; justify-content:center; margin-top:1rem;">
-                    <button id="exportCsvBtn" class="btn-secondary-custom">Export CSV</button>
-                    <a href="/diary/entries/" class="btn-secondary-custom">View All</a>
+                <!-- Actions -->
+                <div class="activity-actions">
+                    <button id="exportCsvBtn" class="btn-secondary-custom" {% if not user.is_premium %}disabled title="Premium feature"{% endif %}>
+                        <i class="fas fa-file-csv me-2"></i>Export CSV
+                    </button>
+                    <a href="/diary/entries/" class="btn-secondary-custom">
+                        <i class="fas fa-list me-2"></i>View All
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Recent Entries Table (paginated) -->
+    <!-- Recent Entries Table -->
     <div class="card-custom">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3 class="card-title"><i class="fas fa-table"></i> Recent Diary Entries</h3>
+        <div class="table-header">
+            <h3 class="card-title"><i class="fas fa-table"></i> Diary Entries</h3>
             <div>
-                <button id="bulkDeleteBtn" class="btn-secondary-custom" style="display:none;">Delete Selected</button>
+                <button id="bulkDeleteBtn" class="btn-danger-custom" style="display:none;">
+                    <i class="fas fa-trash me-2"></i>Delete Selected
+                </button>
             </div>
         </div>
 
@@ -258,43 +399,111 @@
                     </tr>
                 </thead>
                 <tbody id="entriesTbody">
-                    <!-- populated by JS -->
+                    <!-- Populated by JavaScript -->
                 </tbody>
             </table>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
-            <div id="paginationInfo"></div>
-            <div>
-                <button id="prevPage" class="btn-secondary-custom">Prev</button>
-                <button id="nextPage" class="btn-secondary-custom">Next</button>
+        <!-- Pagination -->
+        <div class="pagination-container">
+            <div id="paginationInfo" class="pagination-info"></div>
+            <div class="pagination-controls">
+                <button id="prevPage" class="btn-pagination" disabled>
+                    <i class="fas fa-chevron-left"></i> Prev
+                </button>
+                <button id="nextPage" class="btn-pagination">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
             </div>
         </div>
     </div>
 </main>
+
+<!-- Upgrade Modal -->
+<div class="modal" id="upgradeModal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-crown"></i> Upgrade to Premium</h3>
+            <button class="modal-close" onclick="closeUpgradeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="upgrade-comparison">
+                <div class="upgrade-col">
+                    <h4>Free Plan</h4>
+                    <ul>
+                        <li>50 diary entries max</li>
+                        <li>500 characters per entry</li>
+                        <li>Basic transcription</li>
+                        <li>Simple expense detection</li>
+                        <li>5 AI questions/day</li>
+                        <li>TXT export only</li>
+                    </ul>
+                </div>
+                <div class="upgrade-col premium">
+                    <h4>Premium Plan</h4>
+                    <ul>
+                        <li><i class="fas fa-check"></i> Unlimited entries</li>
+                        <li><i class="fas fa-check"></i> 2000 characters per entry</li>
+                        <li><i class="fas fa-check"></i> Advanced AI transcription</li>
+                        <li><i class="fas fa-check"></i> Smart expense categorization</li>
+                        <li><i class="fas fa-check"></i> Unlimited AI questions</li>
+                        <li><i class="fas fa-check"></i> PDF & Word export</li>
+                        <li><i class="fas fa-check"></i> Advanced analytics & insights</li>
+                        <li><i class="fas fa-check"></i> Priority support</li>
+                    </ul>
+                    <a href="/accounts/upgrade/" class="btn-upgrade">
+                        Start 7-Day Free Trial
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
 /*
-    Advanced front-end behaviours implemented below.
-    Backend expectations (you must implement these endpoints in Django REST Framework or regular Django views):
-     - GET  /api/entries/?page=1&query=...         -> returns paginated JSON list of user's entries
-     - POST /api/entries/voice/                   -> accepts multipart/form-data with audio file, language -> returns created entry JSON
-     - POST /api/entries/text/                    -> accepts JSON/text body to create a text entry
-     - POST /api/chat-analyze/                    -> accepts {query: string, entry_ids?: []} -> returns assistant response
-     - GET  /api/entries/export_csv/              -> returns CSV of filtered entries
+ * AI VOICE DIARY - DASHBOARD JAVASCRIPT
+ * Implements: Voice/Text recording, AI processing, chatbot, filters, pagination
+ * Backend API Requirements:
+ *   - POST /api/entries/voice/          -> multipart audio upload
+ *   - POST /api/entries/text/           -> JSON text entry
+ *   - POST /api/entries/process/        -> process with free/premium mode
+ *   - GET  /api/entries/                -> paginated entries list
+ *   - POST /api/chat/                   -> AI chatbot queries
+ *   - GET  /api/entries/export_csv/     -> CSV export
+ *   - DELETE /api/entries/bulk-delete/  -> bulk delete entries
+ */
 
-    Recommended backend packages: djangorestframework, django-cors-headers, django-storages (if using S3), celery + redis for background transcription/analysis.
-*/
+// ========================================
+// GLOBAL VARIABLES
+// ========================================
+const isPremium = {{ user.is_premium|yesno:"true,false" }};
+const maxChars = isPremium ? 2000 : 500;
+const maxEntries = isPremium ? Infinity : 50;
+let currentPage = 1;
+let totalPages = 1;
+let currentAudioBlob = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+let recordingInterval = null;
+let seconds = 0;
 
-// Sidebar toggle
+// ========================================
+// SIDEBAR TOGGLE
+// ========================================
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebar = document.getElementById('sidebar');
-sidebarToggle?.addEventListener('click', () => sidebar.classList.toggle('open'));
+sidebarToggle?.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+});
 
-// Mode toggle logic
+// ========================================
+// MODE TOGGLE (VOICE/TEXT)
+// ========================================
 const voiceModeBtn = document.getElementById('voiceModeBtn');
 const textModeBtn = document.getElementById('textModeBtn');
 const voiceInputArea = document.getElementById('voiceInputArea');
@@ -314,249 +523,593 @@ textModeBtn?.addEventListener('click', () => {
     voiceInputArea.style.display = 'none';
 });
 
-// Character counter for text editor
+// ========================================
+// TEXT ENTRY CHARACTER COUNTER
+// ========================================
 const textEntry = document.getElementById('textEntry');
 const charCount = document.getElementById('charCount');
-function updateCharCount() {
-    if (textEntry && charCount) charCount.textContent = textEntry.value.length;
-}
-textEntry?.addEventListener('input', updateCharCount);
-function clearTextEntry(){ if (textEntry){ textEntry.value=''; updateCharCount(); }}
 
-// Recording: MediaRecorder support with in-browser preview and upload
-let mediaRecorder;
-let recordedChunks = [];
-let isRecording = false;
-let recordingInterval;
-let seconds = 0;
+function updateCharCount() {
+    if (textEntry && charCount) {
+        charCount.textContent = textEntry.value.length;
+        if (textEntry.value.length >= maxChars) {
+            charCount.style.color = '#ef4444';
+        } else {
+            charCount.style.color = '#6b7280';
+        }
+    }
+}
+
+textEntry?.addEventListener('input', updateCharCount);
+
+function clearTextEntry() {
+    if (textEntry) {
+        textEntry.value = '';
+        updateCharCount();
+    }
+}
+
+// Process text entry
+document.getElementById('processTextBtn')?.addEventListener('click', async () => {
+    const content = textEntry.value.trim();
+    if (!content) {
+        showNotification('Please enter some text', 'error');
+        return;
+    }
+
+    showNotification('Processing entry...', 'info');
+
+    try {
+        const res = await fetch('/api/entries/text/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                content: content,
+                mode: isPremium ? 'premium' : 'free'
+            })
+        });
+
+        if (!res.ok) throw new Error('Processing failed');
+        const data = await res.json();
+        
+        showNotification('Entry saved successfully!', 'success');
+        clearTextEntry();
+        loadEntries();
+    } catch (err) {
+        console.error(err);
+        showNotification('Failed to process entry', 'error');
+    }
+});
+
+// ========================================
+// VOICE RECORDING (MediaRecorder API)
+// ========================================
 const recordButton = document.getElementById('recordButton');
 const recordIcon = document.getElementById('recordIcon');
 const statusText = document.getElementById('statusText');
 const recordingTime = document.getElementById('recordingTime');
 const recordingPreview = document.getElementById('recordingPreview');
+const processingOptions = document.getElementById('processingOptions');
 
-async function startMedia() {
+async function initMediaRecorder() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+        
         mediaRecorder.onstop = handleRecordingStop;
+        return true;
     } catch (err) {
-        console.error('microphone error', err);
-        statusText.textContent = 'Microphone access denied or not available.';
+        console.error('Microphone error:', err);
+        statusText.textContent = 'Microphone access denied';
+        showNotification('Microphone access required', 'error');
+        return false;
     }
 }
 
-async function handleRecordingStop(){
-    // create blob and a playable preview
-    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+function handleRecordingStop() {
+    currentAudioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
     recordedChunks = [];
-    const url = URL.createObjectURL(blob);
+    
+    const url = URL.createObjectURL(currentAudioBlob);
+    recordingPreview.innerHTML = `
+        <div class="audio-preview">
+            <audio controls src="${url}" class="audio-player"></audio>
+            <button class="btn-secondary-custom btn-sm" onclick="clearRecording()">
+                <i class="fas fa-times"></i> Discard
+            </button>
+        </div>
+    `;
+    
+    processingOptions.style.display = 'block';
+    statusText.textContent = 'Recording ready. Choose processing mode:';
+}
+
+function clearRecording() {
+    currentAudioBlob = null;
     recordingPreview.innerHTML = '';
-    const audio = document.createElement('audio'); audio.controls = true; audio.src = url; audio.style.width='100%';
-    recordingPreview.appendChild(audio);
-
-    // upload to backend
-    statusText.textContent = 'Uploading audio for transcription...';
-    const formData = new FormData();
-    formData.append('audio', blob, 'entry.webm');
-    formData.append('language', document.getElementById('languageSelect')?.value || 'en-US');
-
-    try {
-        const res = await fetch('/api/entries/voice/', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-CSRFToken': getCookie('csrftoken') }
-        });
-        if (!res.ok) throw new Error('Upload failed');
-        const data = await res.json();
-        statusText.textContent = 'Entry saved.';
-        // refresh UI
-        loadEntries();
-    } catch (err) {
-        console.error(err);
-        statusText.textContent = 'Upload failed. Try again.';
-    }
+    processingOptions.style.display = 'none';
+    statusText.textContent = 'Click the microphone to start recording';
 }
 
 recordButton?.addEventListener('click', async () => {
-    if (!mediaRecorder) await startMedia();
-    if (!mediaRecorder) return;
+    if (!mediaRecorder) {
+        const initialized = await initMediaRecorder();
+        if (!initialized) return;
+    }
 
     if (!isRecording) {
+        // Start recording
         recordedChunks = [];
         mediaRecorder.start();
         isRecording = true;
         recordButton.classList.add('recording');
         recordIcon.className = 'fas fa-stop';
-        statusText.textContent = 'Recording... Click to stop.';
+        statusText.textContent = 'Recording... Click to stop';
         recordingTime.style.display = 'block';
+        
         seconds = 0;
-        recordingInterval = setInterval(()=>{
+        recordingInterval = setInterval(() => {
             seconds++;
-            const mins = Math.floor(seconds/60); const secs = seconds%60;
-            recordingTime.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
-        },1000);
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            recordingTime.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }, 1000);
     } else {
+        // Stop recording
         mediaRecorder.stop();
         isRecording = false;
         recordButton.classList.remove('recording');
         recordIcon.className = 'fas fa-microphone';
-        statusText.textContent = 'Processing...';
         recordingTime.style.display = 'none';
         clearInterval(recordingInterval);
+        statusText.textContent = 'Processing...';
     }
 });
 
-// small helper to read csrf cookie
-function getCookie(name) {
-    const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return v ? v.pop() : '';
-}
-
 // Upload local audio file
-const uploadLocalBtn = document.getElementById('uploadLocalBtn');
-uploadLocalBtn?.addEventListener('click', ()=>{
-    const input = document.createElement('input'); input.type='file'; input.accept='audio/*';
-    input.onchange = async e => {
+document.getElementById('uploadLocalBtn')?.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    
+    input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const formData = new FormData(); formData.append('audio', file, file.name);
-        formData.append('language', document.getElementById('languageSelect')?.value || 'en-US');
-        statusText.textContent = 'Uploading file...';
-        try {
-            const res = await fetch('/api/entries/voice/', { method:'POST', body:formData, headers:{ 'X-CSRFToken':getCookie('csrftoken') }});
-            if (!res.ok) throw new Error('Upload failed');
-            await res.json();
-            statusText.textContent = 'Uploaded.'; loadEntries();
-        } catch (err) { statusText.textContent = 'Upload failed.'; }
+        
+        currentAudioBlob = file;
+        const url = URL.createObjectURL(file);
+        
+        recordingPreview.innerHTML = `
+            <div class="audio-preview">
+                <audio controls src="${url}" class="audio-player"></audio>
+                <p>Uploaded: ${file.name}</p>
+                <button class="btn-secondary-custom btn-sm" onclick="clearRecording()">
+                    <i class="fas fa-times"></i> Remove
+                </button>
+            </div>
+        `;
+        
+        processingOptions.style.display = 'block';
+        statusText.textContent = 'Audio ready. Choose processing mode:';
     };
+    
     input.click();
 });
 
-// Chatbot (simple request-response)
+// Process audio with selected mode
+document.querySelectorAll('.btn-process-free, .btn-process-premium').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        if (!currentAudioBlob) {
+            showNotification('No audio to process', 'error');
+            return;
+        }
+
+        const mode = btn.dataset.mode;
+        if (mode === 'premium' && !isPremium) {
+            openUpgradeModal();
+            return;
+        }
+
+        document.getElementById('processingBadge').style.display = 'flex';
+        statusText.textContent = `Processing with ${mode} mode...`;
+
+        const formData = new FormData();
+        formData.append('audio', currentAudioBlob, 'entry.webm');
+        formData.append('language', document.getElementById('languageSelect').value);
+        formData.append('mode', mode);
+
+        try {
+            const res = await fetch('/api/entries/voice/', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+
+            if (!res.ok) throw new Error('Upload failed');
+            const data = await res.json();
+
+            showNotification('Entry processed successfully!', 'success');
+            clearRecording();
+            loadEntries();
+        } catch (err) {
+            console.error(err);
+            showNotification('Processing failed. Please try again.', 'error');
+        } finally {
+            document.getElementById('processingBadge').style.display = 'none';
+        }
+    });
+});
+
+// ========================================
+// AI CHATBOT
+// ========================================
 const openChatBtn = document.getElementById('openChatBtn');
 const chatPanel = document.getElementById('chatPanel');
-const sendChatBtn = document.getElementById('sendChatBtn');
 const chatWindow = document.getElementById('chatWindow');
 const chatInput = document.getElementById('chatInput');
-openChatBtn?.addEventListener('click', ()=>{ chatPanel.style.display = chatPanel.style.display === 'none' ? 'block' : 'none'; chatInput?.focus(); });
+const sendChatBtn = document.getElementById('sendChatBtn');
 
-async function appendMessage(role, text){
-    const el = document.createElement('div');
-    el.style.marginBottom='0.6rem';
-    el.innerHTML = `<div style="font-size:0.85rem; color:#374151;"><strong>${role}:</strong> ${escapeHtml(text)}</div>`;
-    chatWindow.appendChild(el);
+openChatBtn?.addEventListener('click', () => {
+    const isVisible = chatPanel.style.display === 'block';
+    chatPanel.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) chatInput?.focus();
+});
+
+function appendChatMessage(role, text, isError = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${role}`;
+    
+    const iconClass = role === 'user' ? 'fa-user' : 'fa-robot';
+    const bubbleClass = isError ? 'chat-bubble error' : 'chat-bubble';
+    
+    messageDiv.innerHTML = `
+        <i class="fas ${iconClass} chat-icon"></i>
+        <div class="${bubbleClass}">${escapeHtml(text)}</div>
+    `;
+    
+    chatWindow.appendChild(messageDiv);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
-function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+sendChatBtn?.addEventListener('click', async () => {
+    const query = chatInput.value.trim();
+    if (!query) return;
 
-sendChatBtn?.addEventListener('click', async ()=>{
-    const q = chatInput.value.trim(); if (!q) return;
-    appendMessage('You', q);
-    chatInput.value='';
-    appendMessage('Assistant', 'Thinking...');
+    appendChatMessage('user', query);
+    chatInput.value = '';
+    
+    const thinkingMsg = appendChatMessage('assistant', 'Thinking...');
 
     try {
-        const res = await fetch('/api/chat-analyze/', {
-            method:'POST', headers:{ 'Content-Type':'application/json', 'X-CSRFToken':getCookie('csrftoken') },
-            body: JSON.stringify({ query: q })
+        const res = await fetch('/api/chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ query })
         });
-        if (!res.ok) throw new Error('Chat failed');
+
+        if (!res.ok) throw new Error('Chat request failed');
         const data = await res.json();
-        // replace the last assistant 'Thinking...' with content
-        chatWindow.lastChild.innerHTML = `<div style="font-size:0.85rem; color:#111;"><strong>Assistant:</strong> ${escapeHtml(data.reply || 'No result')}</div>`;
+
+        // Remove thinking message
+        chatWindow.removeChild(chatWindow.lastChild);
+        
+        // Add actual response
+        appendChatMessage('assistant', data.reply || 'No response available');
+
+        // Update questions remaining if free user
+        if (!isPremium && data.questions_remaining !== undefined) {
+            document.querySelector('.chat-limit').textContent = `${data.questions_remaining}/5 questions today`;
+        }
     } catch (err) {
         console.error(err);
-        chatWindow.lastChild.innerHTML = `<div style="font-size:0.85rem; color:#b91c1c;"><strong>Assistant:</strong> Error — try again later.</div>`;
+        chatWindow.removeChild(chatWindow.lastChild);
+        appendChatMessage('assistant', 'Sorry, I encountered an error. Please try again.', true);
     }
 });
 
-// Entries: fetch, render, filters, pagination
-let currentPage = 1;
-let totalPages = 1;
-async function loadEntries(page=1, query='', date=''){
-    const q = new URLSearchParams({ page, query, date }).toString();
+chatInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatBtn?.click();
+});
+
+// ========================================
+// ENTRIES LOADING & RENDERING
+// ========================================
+async function loadEntries(page = 1, query = '', date = '') {
+    const params = new URLSearchParams({ page, query, date });
+    
     try {
-        const res = await fetch('/api/entries/?' + q, { headers: { 'Accept': 'application/json' }});
-        if (!res.ok) throw new Error('Failed to load');
+        const res = await fetch(`/api/entries/?${params}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!res.ok) throw new Error('Failed to load entries');
         const data = await res.json();
+
         renderEntries(data.results || []);
+        renderActivityList(data.results || []);
+        
         currentPage = data.page || page;
         totalPages = data.total_pages || 1;
-        document.getElementById('paginationInfo').textContent = `Page ${currentPage} / ${totalPages}`;
+        
+        document.getElementById('paginationInfo').textContent = 
+            `Showing page ${currentPage} of ${totalPages}`;
         document.getElementById('totalEntries').textContent = data.total || 0;
+        
+        // Update pagination buttons
+        document.getElementById('prevPage').disabled = currentPage <= 1;
+        document.getElementById('nextPage').disabled = currentPage >= totalPages;
+        
     } catch (err) {
         console.error(err);
-        document.getElementById('activityList').innerHTML = '<div style="padding:1rem; color:#cbd5e1;">Could not load entries.</div>';
+        showNotification('Failed to load entries', 'error');
     }
 }
 
-function renderEntries(entries){
-    const list = document.getElementById('activityList'); list.innerHTML = '';
-    const tbody = document.getElementById('entriesTbody'); tbody.innerHTML = '';
+function renderActivityList(entries) {
+    const list = document.getElementById('activityList');
+    list.innerHTML = '';
 
-    entries.forEach(entry => {
-        // Activity list item
-        const item = document.createElement('div'); item.style.padding='0.75rem'; item.style.borderBottom='1px solid #eef2f7';
+    if (entries.length === 0) {
+        list.innerHTML = '<div class="empty-state">No entries found</div>';
+        return;
+    }
+
+    entries.slice(0, 10).forEach(entry => {
+        const item = document.createElement('div');
+        item.className = 'activity-item';
+        
+        const icon = entry.entry_type === 'voice' ? 'microphone' : 'keyboard';
+        const preview = (entry.transcription || entry.content || '').slice(0, 100);
+        
         item.innerHTML = `
-            <div style="display:flex; gap:0.75rem; align-items:flex-start;">
-                <div style="width:44px;height:44px;border-radius:8px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><i class="fas fa-${entry.entry_type === 'voice' ? 'microphone' : 'keyboard'}"></i></div>
-                <div style="flex:1;">
-                    <div style="font-weight:600;">${entry.entry_type.charAt(0).toUpperCase() + entry.entry_type.slice(1)} Entry</div>
-                    <div style="font-size:0.85rem;color:#6b7280;">${entry.created_at_human || entry.created_at}</div>
-                    <div style="margin-top:0.5rem;color:#374151;">${(entry.transcription || entry.content || '').slice(0,200)}</div>
+            <div class="activity-icon">
+                <i class="fas fa-${icon}"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-header">
+                    <span class="activity-type">${entry.entry_type} Entry</span>
+                    <span class="activity-date">${entry.created_at_human || entry.created_at}</span>
                 </div>
+                <div class="activity-preview">${escapeHtml(preview)}...</div>
+                ${entry.total_expense ? `<div class="activity-expense"><i class="fas fa-wallet"></i> ₹${entry.total_expense}</div>` : ''}
             </div>
         `;
+        
+        item.addEventListener('click', () => viewEntry(entry.id));
         list.appendChild(item);
-
-        // Table row
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><input type="checkbox" data-id="${entry.id}" class="rowCheck" /></td>
-            <td>${entry.created_at_display || entry.created_at}</td>
-            <td><span class="badge">${entry.entry_type}</span></td>
-            <td>${(entry.transcription || entry.content || '').substring(0,80)}</td>
-            <td>${entry.total_expense ? ('₹'+entry.total_expense) : '—'}</td>
-            <td><span class="badge badge-success">Processed</span></td>
-            <td>
-                <button class="btn-secondary-custom viewBtn" data-id="${entry.id}"><i class="fas fa-eye"></i></button>
-                <button class="btn-secondary-custom editBtn" data-id="${entry.id}"><i class="fas fa-edit"></i></button>
-            </td>
-        `;
-        tbody.appendChild(tr);
     });
-
-    // attach view/edit handlers
-    document.querySelectorAll('.viewBtn').forEach(btn => btn.addEventListener('click', () => viewEntry(btn.dataset.id)));
-    document.querySelectorAll('.editBtn').forEach(btn => btn.addEventListener('click', () => editEntry(btn.dataset.id)));
 }
 
-function viewEntry(id){ window.location.href = `/diary/entries/${id}/`; }
-function editEntry(id){ window.location.href = `/diary/entries/${id}/edit/`; }
+function renderEntries(entries) {
+    const tbody = document.getElementById('entriesTbody');
+    tbody.innerHTML = '';
 
-// Pagination buttons
-document.getElementById('prevPage')?.addEventListener('click', ()=>{ if (currentPage>1) loadEntries(currentPage-1);} );
-document.getElementById('nextPage')?.addEventListener('click', ()=>{ if (currentPage<totalPages) loadEntries(currentPage+1);} );
+    if (entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No entries found</td></tr>';
+        return;
+    }
 
-// Filters
-document.getElementById('applyFilterBtn')?.addEventListener('click', ()=>{
-    const q = document.getElementById('filterQuery').value.trim();
-    const d = document.getElementById('filterDate').value;
-    loadEntries(1, q, d);
+    entries.forEach(entry => {
+        const tr = document.createElement('tr');
+        const preview = (entry.transcription || entry.content || '').substring(0, 80);
+        
+        tr.innerHTML = `
+            <td><input type="checkbox" class="rowCheck" data-id="${entry.id}" /></td>
+            <td>${entry.created_at_display || entry.created_at}</td>
+            <td><span class="badge badge-${entry.entry_type}">${entry.entry_type}</span></td>
+            <td class="preview-cell">${escapeHtml(preview)}...</td>
+            <td>${entry.total_expense ? `₹${entry.total_expense}` : '—'}</td>
+            <td><span class="badge badge-success">${entry.status || 'Processed'}</span></td>
+            <td class="actions-cell">
+                <button class="btn-icon" onclick="viewEntry(${entry.id})" title="View">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn-icon" onclick="editEntry(${entry.id})" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn-icon btn-danger" onclick="deleteEntry(${entry.id})" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
+    
+    // Handle bulk selection
+    updateBulkDeleteButton();
+}
+
+function viewEntry(id) {
+    window.location.href = `/diary/entries/${id}/`;
+}
+
+function editEntry(id) {
+    window.location.href = `/diary/entries/${id}/edit/`;
+}
+
+async function deleteEntry(id) {
+    if (!confirm('Are you sure you want to delete this entry?')) return;
+
+    try {
+        const res = await fetch(`/api/entries/${id}/`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+
+        if (!res.ok) throw new Error('Delete failed');
+        
+        showNotification('Entry deleted successfully', 'success');
+        loadEntries(currentPage);
+    } catch (err) {
+        console.error(err);
+        showNotification('Failed to delete entry', 'error');
+    }
+}
+
+// ========================================
+// BULK OPERATIONS
+// ========================================
+document.getElementById('selectAll')?.addEventListener('change', (e) => {
+    document.querySelectorAll('.rowCheck').forEach(cb => {
+        cb.checked = e.target.checked;
+    });
+    updateBulkDeleteButton();
 });
 
-// Export CSV
-document.getElementById('exportCsvBtn')?.addEventListener('click', ()=>{
-    const q = document.getElementById('filterQuery').value.trim();
-    const d = document.getElementById('filterDate').value;
-    window.location.href = `/api/entries/export_csv/?query=${encodeURIComponent(q)}&date=${encodeURIComponent(d)}`;
+document.querySelectorAll('.rowCheck').forEach(cb => {
+    cb.addEventListener('change', updateBulkDeleteButton);
 });
 
-// Initialization
-loadEntries();
+function updateBulkDeleteButton() {
+    const selected = document.querySelectorAll('.rowCheck:checked').length;
+    const bulkBtn = document.getElementById('bulkDeleteBtn');
+    
+    if (selected > 0) {
+        bulkBtn.style.display = 'inline-block';
+        bulkBtn.textContent = `Delete ${selected} Selected`;
+    } else {
+        bulkBtn.style.display = 'none';
+    }
+}
 
+document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
+    const selectedIds = Array.from(document.querySelectorAll('.rowCheck:checked'))
+        .map(cb => cb.dataset.id);
+
+    if (selectedIds.length === 0) return;
+    
+    if (!confirm(`Delete ${selectedIds.length} entries?`)) return;
+
+    try {
+        const res = await fetch('/api/entries/bulk-delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ ids: selectedIds })
+        });
+
+        if (!res.ok) throw new Error('Bulk delete failed');
+        
+        showNotification(`${selectedIds.length} entries deleted`, 'success');
+        loadEntries(currentPage);
+    } catch (err) {
+        console.error(err);
+        showNotification('Failed to delete entries', 'error');
+    }
+});
+
+// ========================================
+// PAGINATION
+// ========================================
+document.getElementById('prevPage')?.addEventListener('click', () => {
+    if (currentPage > 1) loadEntries(currentPage - 1);
+});
+
+document.getElementById('nextPage')?.addEventListener('click', () => {
+    if (currentPage < totalPages) loadEntries(currentPage + 1);
+});
+
+// ========================================
+// FILTERS
+// ========================================
+document.getElementById('applyFilterBtn')?.addEventListener('click', () => {
+    const query = document.getElementById('filterQuery').value.trim();
+    const date = document.getElementById('filterDate').value;
+    loadEntries(1, query, date);
+});
+
+// ========================================
+// EXPORT
+// ========================================
+document.getElementById('exportCsvBtn')?.addEventListener('click', () => {
+    if (!isPremium) {
+        openUpgradeModal();
+        return;
+    }
+
+    const query = document.getElementById('filterQuery').value.trim();
+    const date = document.getElementById('filterDate').value;
+    const params = new URLSearchParams({ query, date });
+    
+    window.location.href = `/api/entries/export_csv/?${params}`;
+    showNotification('Exporting your data...', 'info');
+});
+
+// ========================================
+// UPGRADE MODAL
+// ========================================
+function openUpgradeModal() {
+    document.getElementById('upgradeModal').style.display = 'flex';
+}
+
+function closeUpgradeModal() {
+    document.getElementById('upgradeModal').style.display = 'none';
+}
+
+// Close modal on outside click
+document.getElementById('upgradeModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'upgradeModal') closeUpgradeModal();
+});
+
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function showNotification(message, type = 'info') {
+    // Simple notification implementation
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// ========================================
+// INITIALIZATION
+// ========================================
+document.addEventListener('DOMContentLoaded', () => {
+    loadEntries();
+    updateCharCount();
+});
 </script>
 {% endblock %}
+
